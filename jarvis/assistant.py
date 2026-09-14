@@ -25,11 +25,18 @@ def _run_tool_with_confirmation(name: str, args: dict) -> str:
 class Assistant:
     def __init__(self):
         self.client = llm.make_client()
-        self.messages: list[dict] = []
+        # Plain text turns only — backend-agnostic. Tool calls made while
+        # producing a reply are resolved within that turn and not persisted
+        # here; only the visible conversation carries forward.
+        self.history: list[dict] = []
 
     def ask(self, user_text: str) -> str:
-        self.messages.append({"role": "user", "content": user_text})
-        return llm.reply(self.client, self.messages, on_tool_call=_run_tool_with_confirmation)
+        reply_text = llm.reply(
+            self.client, self.history, user_text, on_tool_call=_run_tool_with_confirmation
+        )
+        self.history.append({"role": "user", "content": user_text})
+        self.history.append({"role": "assistant", "content": reply_text})
+        return reply_text
 
     def run_text_loop(self) -> None:
         print(f"{config.ASSISTANT_NAME} is ready. Type 'exit' to quit.\n")
